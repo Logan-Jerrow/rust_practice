@@ -2,7 +2,12 @@
 name = "hecto"
 version = "0.1.0"
 edition = "2021"
+authors = ["Logan Jerrow <Logan.Jerrow@gmail.com>"]
+license-file = "../LICENSE"
+
+description = "Hecto: Build your own text editor in rust."
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+termion = "*"
