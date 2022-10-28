@@ -1,17 +1,12 @@
-use crate::{terminal::Size, Terminal};
+use crate::{Document, Terminal};
 use termion::event::Key;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+#[derive(Debug, Default)]
 pub struct Position {
     pub x: usize,
     pub y: usize,
-}
-
-impl Position {
-    pub const fn default() -> Self {
-        Self { x: 0, y: 0 }
-    }
 }
 
 /// Representing a text editor.
@@ -19,6 +14,7 @@ pub struct Editor {
     quit_flag: bool,
     terminal: Terminal,
     cursor_position: Position,
+    document: Document,
 }
 
 impl Editor {
@@ -27,7 +23,8 @@ impl Editor {
         Self {
             quit_flag: false,
             terminal: Terminal::default().expect("Failed to initialize terminal."),
-            cursor_position: Position { x: 0, y: 0 },
+            cursor_position: Position::default(),
+            document: Document::default(),
         }
     }
 
