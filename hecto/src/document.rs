@@ -1,3 +1,5 @@
+use std::{io, path::Path};
+
 use crate::Row;
 
 #[derive(Debug, Default)]
@@ -7,10 +9,11 @@ pub struct Document {
 
 impl Document {
     #[must_use]
-    pub fn open() -> Self {
-        Self {
-            rows: vec!["Hello, World!".into()],
-        }
+    pub fn open<P: AsRef<Path>>(filename: P) -> io::Result<Self> {
+        let file_contents = std::fs::read_to_string(filename)?;
+        let rows: Vec<Row> = file_contents.lines().map(|line| line.into()).collect();
+
+        Ok(Self { rows })
     }
 
     #[must_use]

@@ -1,3 +1,5 @@
+use std::env;
+
 use crate::{Document, Row, Terminal};
 use termion::event::Key;
 
@@ -29,19 +31,26 @@ pub struct Editor {
     cursor_position: Position,
     document: Document,
 }
+impl Default for Editor {
+    fn default() -> Self {
+        let args: Vec<String> = env::args().collect();
+        let document = if args.len() > 1 {
+            let file_name = &args[1];
+            Document::open(file_name).unwrap_or_default()
+        } else {
+            Document::default()
+        };
 
-impl Editor {
-    /// Provides a default configuration of [`Editor`]
-    pub fn default() -> Self {
         Self {
             quit_flag: false,
             terminal: Terminal::default().expect("Failed to initialize terminal."),
             cursor_position: Position::default(),
-            document: Document::open(),
-            // document: Document::default(),
+            document,
         }
     }
+}
 
+impl Editor {
     /// Runs the Editor.
     ///
     /// Hooks up to stdin outputs to stdout raw.
