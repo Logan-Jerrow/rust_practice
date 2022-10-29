@@ -1,6 +1,6 @@
 use std::env;
 
-use crate::{Document, Row, Terminal};
+use crate::{terminal::Size, Document, Row, Terminal};
 use termion::event::Key;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -29,6 +29,7 @@ pub struct Editor {
     quit_flag: bool,
     terminal: Terminal,
     cursor_position: Position,
+    offset: Position,
     document: Document,
 }
 impl Default for Editor {
@@ -45,6 +46,7 @@ impl Default for Editor {
             quit_flag: false,
             terminal: Terminal::default().expect("Failed to initialize terminal."),
             cursor_position: Position::default(),
+            offset: Position::default(),
             document,
         }
     }
@@ -90,15 +92,40 @@ impl Editor {
             // _ if Self::is_movement_key(pressed_key) => self.move_cursor(pressed_key),
             _ => (),
         }
+        self.scroll();
         Ok(())
+    }
+
+    fn scroll(&mut self) {
+        let Position {
+            x: cursor_x,
+            y: cursor_y,
+        } = self.cursor_position;
+
+        let width: usize = self.terminal.size().width.into();
+        let height: usize = self.terminal.size().height.into();
+
+        let mut offset = &mut self.offset;
+
+        if cursor_y < offset.y {
+            offset.y = cursor_y;
+        } else if cursor_y >= offset.y.saturating_add(height) {
+            offset.y = cursor_y.saturating_sub(height).saturating_add(1);
+        }
+
+        if cursor_x < offset.x {
+            offset.x = cursor_x;
+        } else if cursor_x >= offset.x.saturating_add(width) {
+            offset.x = cursor_x.saturating_sub(width).saturating_add(1);
+        }
     }
 
     fn move_cursor(&mut self, key: Key) {
         let Position { mut x, mut y } = self.cursor_position;
 
         let size = self.terminal.size();
-        let height: usize = size.height.saturating_sub(1).into();
-        let width: usize = size.width.saturating_sub(1).into();
+        let height: usize = self.document.len();
+        let width: usize = self.document.row(y).map_or(0, Row::len);
 
         match key {
             Key::Up => y = y.saturating_sub(1),
@@ -130,7 +157,10 @@ impl Editor {
             println!("Goodbye\r");
         } else {
             self.draw_rows();
-            Terminal::cursor_position(&self.cursor_position);
+            Terminal::cursor_position(&Position {
+                x: self.cursor_position.x.saturating_sub(self.offset.x),
+                y: self.cursor_position.y.saturating_sub(self.offset.y),
+            });
         }
 
         Terminal::cursor_show();
@@ -138,8 +168,9 @@ impl Editor {
     }
 
     pub fn draw_row(&self, row: &Row) {
-        let start = 0;
-        let end = self.terminal.size().width.into();
+        let width: usize = self.terminal.size().width.into();
+        let start = self.offset.x;
+        let end = self.offset.x + width;
         let row = row.render(start, end);
         println!("{row}\r");
     }
@@ -150,18 +181,20 @@ impl Editor {
         // -1 to keep from scolling
         for terminal_row in 0..height - 1 {
             Terminal::clear_current_line();
-            self.document.row(terminal_row.into()).map_or_else(
-                || {
-                    if self.document.is_empty() && terminal_row == height / 3 {
-                        self.draw_welcome_message();
-                    } else {
-                        println!("~\r");
-                    }
-                },
-                |row| {
-                    self.draw_row(row);
-                },
-            );
+            self.document
+                .row(usize::from(terminal_row) + self.offset.y)
+                .map_or_else(
+                    || {
+                        if self.document.is_empty() && terminal_row == height / 3 {
+                            self.draw_welcome_message();
+                        } else {
+                            println!("~\r");
+                        }
+                    },
+                    |row| {
+                        self.draw_row(row);
+                    },
+                );
         }
     }
 

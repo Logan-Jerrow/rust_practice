@@ -8,10 +8,13 @@ pub struct Document {
 }
 
 impl Document {
-    #[must_use]
+    /// open document in editor
+    ///
+    /// # Errors
+    /// [`std::io::Error`]s if file is not found.
     pub fn open<P: AsRef<Path>>(filename: P) -> io::Result<Self> {
         let file_contents = std::fs::read_to_string(filename)?;
-        let rows: Vec<Row> = file_contents.lines().map(|line| line.into()).collect();
+        let rows: Vec<Row> = file_contents.lines().map(Into::into).collect();
 
         Ok(Self { rows })
     }
@@ -24,5 +27,10 @@ impl Document {
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.rows.is_empty()
+    }
+
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.rows.len()
     }
 }
