@@ -121,32 +121,54 @@ impl Editor {
     }
 
     fn move_cursor(&mut self, key: Key) {
-        let Position { mut x, mut y } = self.cursor_position;
+        let terminal_height: usize = self.terminal.size().height.into();
+        let Position {
+            x: mut curosr_x,
+            y: mut cursor_y,
+        } = self.cursor_position;
 
-        let size = self.terminal.size();
-        let height: usize = self.document.len();
-        let width: usize = self.document.row(y).map_or(0, Row::len);
+        let doc_height: usize = self.document.len();
+        let mut doc_width: usize = self.document.row(cursor_y).map_or(0, Row::len);
 
         match key {
-            Key::Up => y = y.saturating_sub(1),
+            Key::Up => cursor_y = cursor_y.saturating_sub(1),
             Key::Down => {
-                if y < height {
-                    y = y.saturating_add(1);
+                if cursor_y < doc_height {
+                    cursor_y = cursor_y.saturating_add(1);
                 }
             }
-            Key::Left => x = x.saturating_sub(1),
+            Key::Left => curosr_x = curosr_x.saturating_sub(1),
             Key::Right => {
-                if x < width {
-                    x = x.saturating_add(1);
+                if curosr_x < doc_width {
+                    curosr_x = curosr_x.saturating_add(1);
                 }
             }
-            Key::PageUp => y = 0,
-            Key::PageDown => y = height,
-            Key::Home => x = 0,
-            Key::End => x = width,
+            Key::PageUp => {
+                cursor_y = if cursor_y > terminal_height {
+                    cursor_y - (terminal_height / 2)
+                } else {
+                    0
+                }
+            }
+            Key::PageDown => {
+                cursor_y = if cursor_y.saturating_add(terminal_height) < doc_height {
+                    cursor_y + (terminal_height / 2)
+                } else {
+                    doc_height
+                }
+            }
+            Key::Home => curosr_x = 0,
+            Key::End => curosr_x = doc_width,
             _ => unreachable!(),
         }
-        self.cursor_position = Position { x, y };
+        doc_width = self.document.row(cursor_y).map_or(0, Row::len);
+        if curosr_x > doc_width {
+            curosr_x = doc_width;
+        }
+        self.cursor_position = Position {
+            x: curosr_x,
+            y: cursor_y,
+        };
     }
 
     fn refresh_screen(&self) -> Result<(), std::io::Error> {
