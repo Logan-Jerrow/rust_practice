@@ -1,7 +1,20 @@
-use crate::{Document, Terminal};
+use crate::{Document, Row, Terminal};
 use termion::event::Key;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+macro_rules! is_movement_key {
+    () => {
+        Key::Up
+            | Key::Down
+            | Key::Left
+            | Key::Right
+            | Key::PageUp
+            | Key::PageDown
+            | Key::End
+            | Key::Home
+    };
+}
 
 #[derive(Debug, Default)]
 pub struct Position {
@@ -24,7 +37,8 @@ impl Editor {
             quit_flag: false,
             terminal: Terminal::default().expect("Failed to initialize terminal."),
             cursor_position: Position::default(),
-            document: Document::default(),
+            document: Document::open(),
+            // document: Document::default(),
         }
     }
 
@@ -45,18 +59,26 @@ impl Editor {
         }
     }
 
+    const fn is_movement_key(key: Key) -> bool {
+        matches!(
+            key,
+            Key::Up
+                | Key::Down
+                | Key::Left
+                | Key::Right
+                | Key::PageUp
+                | Key::PageDown
+                | Key::End
+                | Key::Home
+        )
+    }
+
     fn process_keypress(&mut self) -> Result<(), std::io::Error> {
         let pressed_key = Terminal::read_key()?;
         match pressed_key {
             Key::Ctrl('q') => self.quit_flag = true,
-            Key::Up
-            | Key::Down
-            | Key::Left
-            | Key::Right
-            | Key::PageUp
-            | Key::PageDown
-            | Key::End
-            | Key::Home => self.move_cursor(pressed_key),
+            is_movement_key!() => self.move_cursor(pressed_key),
+            // _ if Self::is_movement_key(pressed_key) => self.move_cursor(pressed_key),
             _ => (),
         }
         Ok(())
@@ -73,13 +95,13 @@ impl Editor {
             Key::Up => y = y.saturating_sub(1),
             Key::Down => {
                 if y < height {
-                    y = y.saturating_add(1)
+                    y = y.saturating_add(1);
                 }
             }
             Key::Left => x = x.saturating_sub(1),
             Key::Right => {
                 if x < width {
-                    x = x.saturating_add(1)
+                    x = x.saturating_add(1);
                 }
             }
             Key::PageUp => y = 0,
@@ -106,17 +128,31 @@ impl Editor {
         Terminal::flush()
     }
 
+    pub fn draw_row(&self, row: &Row) {
+        let start = 0;
+        let end = self.terminal.size().width.into();
+        let row = row.render(start, end);
+        println!("{row}\r");
+    }
+
     fn draw_rows(&self) {
         let height = self.terminal.size().height;
 
         // -1 to keep from scolling
-        for row in 0..height - 1 {
+        for terminal_row in 0..height - 1 {
             Terminal::clear_current_line();
-            if row == height / 3 {
-                self.draw_welcome_message();
-            } else {
-                println!("~\r");
-            }
+            self.document.row(terminal_row.into()).map_or_else(
+                || {
+                    if self.document.is_empty() && terminal_row == height / 3 {
+                        self.draw_welcome_message();
+                    } else {
+                        println!("~\r");
+                    }
+                },
+                |row| {
+                    self.draw_row(row);
+                },
+            );
         }
     }
 
