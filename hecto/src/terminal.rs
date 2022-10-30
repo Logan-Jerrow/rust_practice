@@ -1,11 +1,14 @@
 use std::io::{self, stdout, Write};
 use termion::{
+    color,
     event::Key,
     input::TermRead,
     raw::{IntoRawMode, RawTerminal},
 };
 
 use crate::editor::Position;
+
+const STATUS_LINE_HEIGHT: u16 = 2;
 
 type Result<T> = std::result::Result<T, std::io::Error>;
 
@@ -25,7 +28,7 @@ impl Terminal {
         Ok(Self {
             size: Size {
                 width: size.0,
-                height: size.1,
+                height: size.1.saturating_sub(STATUS_LINE_HEIGHT),
             },
             _stdout: stdout().into_raw_mode()?,
         })
@@ -77,6 +80,22 @@ impl Terminal {
 
     pub(crate) fn clear_current_line() {
         print!("{}", termion::clear::CurrentLine);
+    }
+
+    pub(crate) fn set_bg_color(color: termion::color::Rgb) {
+        print!("{}", color::Bg(color));
+    }
+
+    pub(crate) fn reset_bg_color() {
+        print!("{}", color::Bg(color::Reset));
+    }
+
+    pub(crate) fn set_fg_color(color: termion::color::Rgb) {
+        print!("{}", color::Fg(color));
+    }
+
+    pub(crate) fn reset_fg_color() {
+        print!("{}", color::Fg(color::Reset));
     }
 }
 

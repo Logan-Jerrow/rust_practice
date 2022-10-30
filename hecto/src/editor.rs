@@ -1,8 +1,12 @@
-use std::env;
+use crate::{Document, Row, Terminal};
+use std::{
+    env,
+    time::{Duration, Instant},
+};
+use termion::{color, event::Key};
 
-use crate::{terminal::Size, Document, Row, Terminal};
-use termion::event::Key;
-
+const STATUS_FG_COLOR: color::Rgb = color::Rgb(63, 63, 63);
+const STATUS_BG_COLOR: color::Rgb = color::Rgb(239, 239, 239);
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 macro_rules! is_movement_key {
@@ -24,6 +28,20 @@ pub struct Position {
     pub y: usize,
 }
 
+struct StatusMessage {
+    text: String,
+    time: Instant,
+}
+
+impl From<String> for StatusMessage {
+    fn from(message: String) -> Self {
+        Self {
+            text: message,
+            time: Instant::now(),
+        }
+    }
+}
+
 /// Representing a text editor.
 pub struct Editor {
     quit_flag: bool,
@@ -31,13 +49,19 @@ pub struct Editor {
     cursor_position: Position,
     offset: Position,
     document: Document,
+    status_message: StatusMessage,
 }
+
 impl Default for Editor {
     fn default() -> Self {
         let args: Vec<String> = env::args().collect();
+        let mut initial_status = String::from("HELP: Ctrl-Q = quit");
         let document = if args.len() > 1 {
             let file_name = &args[1];
-            Document::open(file_name).unwrap_or_default()
+            Document::open(file_name).unwrap_or_else(|_| {
+                initial_status = format!("ERROR: Could not open file: {file_name}");
+                Document::default()
+            })
         } else {
             Document::default()
         };
@@ -48,6 +72,7 @@ impl Default for Editor {
             cursor_position: Position::default(),
             offset: Position::default(),
             document,
+            status_message: StatusMessage::from(initial_status),
         }
     }
 }
@@ -68,20 +93,6 @@ impl Editor {
                 die(e);
             }
         }
-    }
-
-    const fn is_movement_key(key: Key) -> bool {
-        matches!(
-            key,
-            Key::Up
-                | Key::Down
-                | Key::Left
-                | Key::Right
-                | Key::PageUp
-                | Key::PageDown
-                | Key::End
-                | Key::Home
-        )
     }
 
     fn process_keypress(&mut self) -> Result<(), std::io::Error> {
@@ -123,7 +134,7 @@ impl Editor {
     fn move_cursor(&mut self, key: Key) {
         let terminal_height: usize = self.terminal.size().height.into();
         let Position {
-            x: mut curosr_x,
+            x: mut cursor_x,
             y: mut cursor_y,
         } = self.cursor_position;
 
@@ -137,10 +148,20 @@ impl Editor {
                     cursor_y = cursor_y.saturating_add(1);
                 }
             }
-            Key::Left => curosr_x = curosr_x.saturating_sub(1),
+            Key::Left => {
+                if cursor_x > 0 {
+                    cursor_x -= 1;
+                } else if cursor_y > 0 {
+                    cursor_y -= 1;
+                    cursor_x = self.document.row(cursor_y).map_or(0, Row::len);
+                }
+            }
             Key::Right => {
-                if curosr_x < doc_width {
-                    curosr_x = curosr_x.saturating_add(1);
+                if cursor_x < doc_width {
+                    cursor_x += 1;
+                } else if cursor_y < doc_height {
+                    cursor_y += 1;
+                    cursor_x = 0;
                 }
             }
             Key::PageUp => {
@@ -157,16 +178,16 @@ impl Editor {
                     doc_height
                 }
             }
-            Key::Home => curosr_x = 0,
-            Key::End => curosr_x = doc_width,
+            Key::Home => cursor_x = 0,
+            Key::End => cursor_x = doc_width,
             _ => unreachable!(),
         }
         doc_width = self.document.row(cursor_y).map_or(0, Row::len);
-        if curosr_x > doc_width {
-            curosr_x = doc_width;
+        if cursor_x > doc_width {
+            cursor_x = doc_width;
         }
         self.cursor_position = Position {
-            x: curosr_x,
+            x: cursor_x,
             y: cursor_y,
         };
     }
@@ -179,6 +200,8 @@ impl Editor {
             println!("Goodbye\r");
         } else {
             self.draw_rows();
+            self.draw_status_bar();
+            self.draw_message_bar();
             Terminal::cursor_position(&Position {
                 x: self.cursor_position.x.saturating_sub(self.offset.x),
                 y: self.cursor_position.y.saturating_sub(self.offset.y),
@@ -201,7 +224,7 @@ impl Editor {
         let height = self.terminal.size().height;
 
         // -1 to keep from scolling
-        for terminal_row in 0..height - 1 {
+        for terminal_row in 0..height {
             Terminal::clear_current_line();
             self.document
                 .row(usize::from(terminal_row) + self.offset.y)
@@ -232,6 +255,50 @@ impl Editor {
         welcome_msg.truncate(width);
 
         println!("{welcome_msg}\r");
+    }
+
+    fn draw_status_bar(&self) {
+        let mut status;
+        let width = self.terminal.size().width.into();
+        let file_name = self.document.file_name.as_ref().map_or_else(
+            || "[No Name]".to_string(),
+            |name| {
+                let mut name = name.clone();
+                name.truncate(20);
+                name
+            },
+        );
+
+        status = format!("{file_name} - {} lines", self.document.len());
+
+        let line_indicator = format!(
+            "{}/{}",
+            self.cursor_position.y.saturating_add(1),
+            self.document.len(),
+        );
+
+        let length = status.len() + line_indicator.len();
+        if width > length {
+            status.push_str(&" ".repeat(width - length));
+        }
+        status = format!("{status}{line_indicator}");
+        status.truncate(width);
+
+        Terminal::set_bg_color(STATUS_BG_COLOR);
+        Terminal::set_fg_color(STATUS_FG_COLOR);
+        println!("{status}\r");
+        Terminal::reset_bg_color();
+        Terminal::reset_fg_color();
+    }
+
+    fn draw_message_bar(&self) {
+        Terminal::clear_current_line();
+        let message = &self.status_message;
+        if Instant::now() - message.time < Duration::new(5, 0) {
+            let mut text = message.text.clone();
+            text.truncate(self.terminal.size().width.into());
+            print!("{text}");
+        }
     }
 }
 

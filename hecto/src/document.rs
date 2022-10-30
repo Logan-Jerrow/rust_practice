@@ -1,10 +1,11 @@
-use std::{io, path::Path};
+use std::io;
 
 use crate::Row;
 
 #[derive(Debug, Default)]
 pub struct Document {
     rows: Vec<Row>,
+    pub file_name: Option<String>,
 }
 
 impl Document {
@@ -12,11 +13,14 @@ impl Document {
     ///
     /// # Errors
     /// [`std::io::Error`]s if file is not found.
-    pub fn open<P: AsRef<Path>>(filename: P) -> io::Result<Self> {
-        let file_contents = std::fs::read_to_string(filename)?;
+    pub fn open(file_name: &str) -> io::Result<Self> {
+        let file_contents = std::fs::read_to_string(file_name)?;
         let rows: Vec<Row> = file_contents.lines().map(Into::into).collect();
 
-        Ok(Self { rows })
+        Ok(Self {
+            rows,
+            file_name: Some(file_name.to_string()),
+        })
     }
 
     #[must_use]
