@@ -1,5 +1,8 @@
 use crate::piece::{Color, Kind, Piece};
 use core::{fmt::Display, slice::Chunks};
+use std::str::FromStr;
+
+use self::movement::{square::Square, Notation};
 
 mod movement {
     use crate::piece::Kind;
@@ -13,6 +16,15 @@ mod movement {
         pub enum Square {
             File(usize),
             Rank(usize),
+        }
+
+        impl Square {
+            pub fn index(&self) -> usize {
+                match *self {
+                    Square::File(i) => i,
+                    Square::Rank(i) => i,
+                }
+            }
         }
 
         impl FromStr for Square {
@@ -77,28 +89,28 @@ mod movement {
     }
 
     #[derive(Debug, Clone, Copy, PartialEq)]
-    struct Movement {
+    pub struct Notation {
         // player: crate::piece::Color,
-        piece: crate::piece::Kind,
-        ambiguitie: Option<Square>,
-        file: Square,
-        rank: Square,
+        pub piece: crate::piece::Kind,
+        pub ambiguitie: Option<Square>,
+        pub file: usize,
+        pub rank: usize,
     }
 
-    impl Movement {}
+    impl Notation {}
 
-    impl Default for Movement {
+    impl Default for Notation {
         fn default() -> Self {
             Self {
                 piece: Kind::default(),
                 ambiguitie: Option::default(),
-                file: Square::File(0),
-                rank: Square::Rank(0),
+                file: 0,
+                rank: 0,
             }
         }
     }
 
-    impl FromStr for Movement {
+    impl FromStr for Notation {
         type Err = String;
 
         fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -109,22 +121,22 @@ mod movement {
 
             match characters {
                 [Some(file), Some(rank), None, None] => Ok(Self {
-                    file: file.to_string().parse()?,
-                    rank: rank.to_string().parse()?,
+                    file: file.to_string().parse::<Square>()?.index(),
+                    rank: rank.to_string().parse::<Square>()?.index(),
                     ..Default::default()
                 }),
                 [Some(piece), Some(file), Some(rank), None] => Ok(Self {
                     piece: piece.to_string().parse()?,
-                    file: file.to_string().parse()?,
-                    rank: rank.to_string().parse()?,
+                    file: file.to_string().parse::<Square>()?.index(),
+                    rank: rank.to_string().parse::<Square>()?.index(),
                     ..Default::default()
                 }),
 
                 [Some(piece), Some(ambiguitie), Some(file), Some(rank)] => Ok(Self {
                     piece: piece.to_string().parse()?,
                     ambiguitie: Some(ambiguitie.to_string().parse()?),
-                    file: file.to_string().parse()?,
-                    rank: rank.to_string().parse()?,
+                    file: file.to_string().parse::<Square>()?.index(),
+                    rank: rank.to_string().parse::<Square>()?.index(),
                 }),
                 _ => Err("notation wrong length")?,
             }
@@ -138,12 +150,12 @@ mod movement {
         #[test]
         fn parse_notation_len2() {
             assert_eq!(
-                "g5".parse::<Movement>(),
-                Ok(Movement {
+                "g5".parse::<Notation>(),
+                Ok(Notation {
                     piece: Kind::Pawn,
                     ambiguitie: None,
-                    file: Square::File(6),
-                    rank: Square::Rank(4)
+                    file: 6,
+                    rank: 4
                 })
             );
         }
@@ -151,12 +163,12 @@ mod movement {
         #[test]
         fn parse_notation_len3() {
             assert_eq!(
-                "Qg5".parse::<Movement>(),
-                Ok(Movement {
+                "Qg5".parse::<Notation>(),
+                Ok(Notation {
                     piece: Kind::Queen,
                     ambiguitie: None,
-                    file: Square::File(6),
-                    rank: Square::Rank(4)
+                    file: 6,
+                    rank: 4
                 })
             );
         }
@@ -164,22 +176,22 @@ mod movement {
         #[test]
         fn parse_notation_len4() {
             assert_eq!(
-                "B8g5".parse::<Movement>(),
-                Ok(Movement {
+                "B8g5".parse::<Notation>(),
+                Ok(Notation {
                     piece: Kind::Bishop,
                     ambiguitie: Some(Square::Rank(7)),
-                    file: Square::File(6),
-                    rank: Square::Rank(4)
+                    file: 6,
+                    rank: 4
                 })
             );
 
             assert_eq!(
-                "Bhg5".parse::<Movement>(),
-                Ok(Movement {
+                "Bhg5".parse::<Notation>(),
+                Ok(Notation {
                     piece: Kind::Bishop,
                     ambiguitie: Some(Square::File(7)),
-                    file: Square::File(6),
-                    rank: Square::Rank(4)
+                    file: 6,
+                    rank: 4
                 })
             );
         }
@@ -291,7 +303,7 @@ impl Board {
     pub fn new() -> Self {
         Self::default()
     }
-    pub(crate) fn row(&self) -> Chunks<Option<Piece>> {
+    pub fn row(&self) -> Chunks<Option<Piece>> {
         self.0.chunks(8)
     }
 
@@ -299,10 +311,10 @@ impl Board {
         println!("{self}");
     }
 
-    pub fn move_piece<I>(mut self, p: usize) {
-        // self.0.get_mut(p);
+    pub fn move_piece(mut self, notation: &str) -> Result<(Kind, usize, usize), String> {
+        let mov = notation.parse::<Notation>()?;
 
-        todo!();
+        Ok((mov.piece, mov.file, mov.rank))
     }
 }
 
@@ -310,9 +322,9 @@ impl Board {
 mod tests {
     use super::*;
 
-    // #[test]
-    // fn movement() {
-    //     let board = Board::default();
-
-    // }
+    #[test]
+    fn movement() {
+        let board = Board::default();
+        assert_eq!(board.move_piece("a1"), Ok((Kind::Pawn, 0, 0)));
+    }
 }
