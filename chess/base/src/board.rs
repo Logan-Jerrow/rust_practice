@@ -1,11 +1,14 @@
+use self::movement::Notation;
 use crate::piece::{Color, Kind, Piece};
 use core::{fmt::Display, slice::Chunks};
-use std::str::FromStr;
-
-use self::movement::{square::Square, Notation};
+use std::io::{stdout, Write};
+use termion::{
+    clear,
+    cursor::{self, DetectCursorPos},
+    raw::IntoRawMode,
+};
 
 mod movement {
-    use crate::piece::Kind;
     use core::str::{self, FromStr};
     use square::Square;
 
@@ -19,10 +22,9 @@ mod movement {
         }
 
         impl Square {
-            pub fn index(&self) -> usize {
+            pub const fn index(&self) -> usize {
                 match *self {
-                    Square::File(i) => i,
-                    Square::Rank(i) => i,
+                    Self::File(i) | Self::Rank(i) => i,
                 }
             }
         }
@@ -88,7 +90,7 @@ mod movement {
         }
     }
 
-    #[derive(Debug, Clone, Copy, PartialEq)]
+    #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
     pub struct Notation {
         // player: crate::piece::Color,
         pub piece: crate::piece::Kind,
@@ -98,17 +100,6 @@ mod movement {
     }
 
     impl Notation {}
-
-    impl Default for Notation {
-        fn default() -> Self {
-            Self {
-                piece: Kind::default(),
-                ambiguitie: Option::default(),
-                file: 0,
-                rank: 0,
-            }
-        }
-    }
 
     impl FromStr for Notation {
         type Err = String;
@@ -146,6 +137,7 @@ mod movement {
     #[cfg(test)]
     mod tests {
         use super::*;
+        use crate::piece::Kind;
 
         #[test]
         fn parse_notation_len2() {
@@ -200,6 +192,39 @@ mod movement {
 
 #[derive(Debug)]
 pub struct Board(pub [Option<Piece>; 64]);
+
+impl Board {
+    const FILE_RANK_BAR: &str = "  a|b|c|d|e|f|g|h\r
+  ———————————————\r
+1|               |1\r
+2|               |2\r
+3|               |3\r
+4|               |4\r
+5|               |5\r
+6|               |6\r
+7|               |7\r
+8|               |8\r
+  ———————————————\r
+  a|b|c|d|e|f|g|h";
+
+    pub fn print_main() {
+        let mut stdout = stdout().into_raw_mode().unwrap();
+        write!(stdout, "{}{}", clear::All, cursor::Goto(1, 1)).unwrap();
+
+        write!(stdout, "{}\r\n", Self::FILE_RANK_BAR).unwrap();
+        let end = stdout.cursor_pos().unwrap();
+
+        let (start_x, mut start_y) = (3, 3);
+        for _ in 1..=8 {
+            write!(stdout, "{}", cursor::Goto(start_x, start_y)).unwrap();
+            write!(stdout, ". . . . . . . .").unwrap();
+
+            start_y += 1;
+            write!(stdout, "{}", cursor::Goto(start_x, start_y)).unwrap();
+        }
+        write!(stdout, "{}", cursor::Goto(end.0, end.1)).unwrap();
+    }
+}
 
 macro_rules! piece {
     (p) => {
@@ -271,30 +296,7 @@ impl Default for Board {
 
 impl Display for Board {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut buffer: String = String::with_capacity(281); // TODO: Calculate needed capacity
-
-        let mut row_number = 8_u8;
-        for row in self.row() {
-            buffer.push_str(&format!("{row_number}|"));
-            row_number -= 1;
-
-            for s in row
-                .iter()
-                .map(|o| o.map_or_else(|| ".".to_string(), |p| p.to_string()))
-            {
-                buffer.push_str(&s);
-                buffer.push(' ');
-            }
-            buffer.push('\n');
-        }
-        // buffer.push_str(&"\u{203e}".repeat(15));
-        // buffer.push_str(&"_".repeat(15));
-
-        buffer.push_str("  ");
-        buffer.push_str(&"—".repeat(15));
-        buffer.push_str("  \n  a|b|c|d|e|f|g|h");
-
-        write!(f, "{buffer}")
+        todo!()
     }
 }
 
