@@ -1,6 +1,7 @@
 use self::movement::Notation;
 use crate::piece::{Color, Kind, Piece};
-use core::{fmt::Display, slice::Chunks};
+use core::slice::Chunks;
+use itertools::Itertools;
 use std::io::{stdout, Write};
 use termion::{
     clear,
@@ -207,7 +208,7 @@ impl Board {
   ———————————————\r
   a|b|c|d|e|f|g|h";
 
-    pub fn print_main() {
+    pub fn print_sidebar() {
         let mut stdout = stdout().into_raw_mode().unwrap();
         write!(stdout, "{}{}", clear::All, cursor::Goto(1, 1)).unwrap();
 
@@ -223,6 +224,27 @@ impl Board {
             write!(stdout, "{}", cursor::Goto(start_x, start_y)).unwrap();
         }
         write!(stdout, "{}", cursor::Goto(end.0, end.1)).unwrap();
+    }
+
+    pub fn print_board(&self) {
+        print!("{}", cursor::Save);
+
+        let (mut x, mut y) = (3_u16, 3_u16);
+        for row in &self
+            .0
+            .iter()
+            .map(|o| o.map_or_else(|| ". ".to_string(), |p| p.to_string() + " "))
+            .chunks(8)
+        {
+            for p in row {
+                print!("{}{p}", cursor::Goto(x, y));
+                x += 2;
+            }
+            println!();
+            x = 3;
+            y += 1;
+        }
+        print!("{}", cursor::Restore);
     }
 }
 
@@ -294,11 +316,16 @@ impl Default for Board {
     }
 }
 
-impl Display for Board {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        todo!()
-    }
-}
+// impl Display for Board {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         let test = self
+//             .0
+//             .map(|o| o.map_or_else(|| ".".to_string(), |p| p.to_string()))
+//             .join("");
+
+//         writeln!(f, "{test}")
+//     }
+// }
 
 impl Board {
     #[must_use]
@@ -307,10 +334,6 @@ impl Board {
     }
     pub fn row(&self) -> Chunks<Option<Piece>> {
         self.0.chunks(8)
-    }
-
-    pub fn print(&self) {
-        println!("{self}");
     }
 
     pub fn move_piece(mut self, notation: &str) -> Result<(Kind, usize, usize), String> {
