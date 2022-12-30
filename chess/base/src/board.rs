@@ -233,7 +233,7 @@ impl Board {
         for row in &self
             .0
             .iter()
-            .map(|o| o.map_or_else(|| ". ".to_string(), |p| p.to_string() + " "))
+            .map(|o| o.map_or_else(|| ".".to_string(), |p| p.to_string()))
             .chunks(8)
         {
             for p in row {
