@@ -1,9 +1,28 @@
 use core::{fmt::Display, str::FromStr};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum Color {
+    #[default]
     White,
     Black,
+}
+
+impl Color {
+    pub fn flip(&mut self) {
+        match self {
+            Color::White => *self = Color::Black,
+            Color::Black => *self = Color::White,
+        }
+    }
+}
+
+impl Display for Color {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Self::White => write!(f, "White"),
+            Self::Black => write!(f, "Black"),
+        }
+    }
 }
 
 const BLACK_PAWN: char = '♟';
@@ -29,6 +48,19 @@ pub enum Kind {
     Rook,
     Queen,
     King,
+}
+
+impl Display for Kind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Self::Pawn => write!(f, "Pawn"),
+            Self::Knight => write!(f, "Knight"),
+            Self::Bishop => write!(f, "Bishop"),
+            Self::Rook => write!(f, "Rook"),
+            Self::Queen => write!(f, "Queen"),
+            Self::King => write!(f, "King"),
+        }
+    }
 }
 
 impl FromStr for Kind {
