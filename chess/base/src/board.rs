@@ -1,5 +1,6 @@
 mod macros;
-mod movement;
+pub mod movement;
+pub mod square;
 
 use self::movement::Notation;
 use crate::{
@@ -113,16 +114,7 @@ impl Board {
         stdout().flush().unwrap();
     }
 
-    #[must_use]
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn move_piece(
-        &mut self,
-        color: piece::Color,
-        notation: &str,
-    ) -> Result<(Kind, usize, usize), String> {
+    pub fn move_piece(&mut self, color: piece::Color, notation: &str) -> Result<(), String> {
         let mov = notation.parse::<Notation>()?;
         let dest = (mov.rank, mov.file);
 
@@ -136,7 +128,7 @@ impl Board {
 
         dbg!(src);
 
-        Ok((mov.piece, mov.file, mov.rank))
+        Ok(())
     }
 }
 
@@ -163,15 +155,15 @@ mod tests {
 
     #[test]
     fn movement() {
-        let board = Board::default();
-        board.move_piece(Color::Black, "a3");
+        let mut board = Board::default();
+        board.move_piece(Color::Black, "a3").unwrap();
 
         // assert_eq!(board.move_piece("a1"), Ok((Kind::Pawn, 0, 0)));
     }
 
     #[test]
     fn board_start() {
-        let Goto(x, y) = Board::start_position(Board::FILE_RANK_BAR);
+        let Goto(x, y) = Board::start_position();
         assert_eq!((x, y), (3, 3));
     }
 }

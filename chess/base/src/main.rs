@@ -10,6 +10,11 @@
 
 mod board;
 mod piece;
+mod point {
+    pub struct Point(u16, u16);
+
+    // impl From<(usize, usize)> for Point {}
+}
 mod game {
     use std::io::{stdin, stdout, Write};
 
@@ -43,10 +48,10 @@ mod game {
                     break
                 };
 
-                println!(
-                    "{} {} moves to ({}, {})",
-                    self.turn, thing.0, thing.1, thing.2
-                );
+                // println!(
+                //     "{} {} moves to ({}, {})",
+                //     self.turn, thing.0, thing.1, thing.2
+                // );
 
                 std::thread::sleep(std::time::Duration::from_secs(5));
                 self.next_turn();
